@@ -5,7 +5,11 @@
 package uk.ac.shef.oak.jobserviceexample;
 
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
@@ -50,24 +54,21 @@ public class Service extends android.app.Service {
         }
 
         // make sure you call the startForeground on onStartCommand because otherwise
-        // when we hide the notification on onScreen it will nto restart in Android 6 and 7
+        // when we hide the notification on onScreen it will not restart in Android 6 and 7
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             restartForeground();
         }
-
         startTimer();
 
         // return start sticky so if it is killed by android, it will be restarted with Intent null
         return START_STICKY;
     }
 
-
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
         return null;
     }
-
 
     /**
      * it starts the process in foreground. Normally this is done when screen goes off
@@ -85,12 +86,20 @@ public class Service extends android.app.Service {
                 startForeground(NOTIFICATION_ID, notification.setNotification(this, "Service notification", "This is the service's notification", R.drawable.ic_sleep));
                 Log.i(TAG, "restarting foreground successful");
                 startTimer();
+                ConnectivityManager connMgr = (ConnectivityManager)
+                        getSystemService(Context.CONNECTIVITY_SERVICE);
+                NetworkInfo networkInfo = null;
+                if (connMgr != null) {
+                    networkInfo = connMgr.getActiveNetworkInfo();
+                }
+                if (networkInfo != null && networkInfo.isConnected()) {
+                    new Fetch().execute("");
+                }
             } catch (Exception e) {
                 Log.e(TAG, "Error in notification " + e.getMessage());
             }
         }
     }
-
 
     @Override
     public void onDestroy() {
@@ -102,13 +111,10 @@ public class Service extends android.app.Service {
         stoptimertask();
     }
 
-
     /**
      * this is called when the process is killed by Android
-     *
      * @param rootIntent
      */
-
     @Override
     public void onTaskRemoved(Intent rootIntent) {
         super.onTaskRemoved(rootIntent);
@@ -122,12 +128,10 @@ public class Service extends android.app.Service {
         // stoptimertask();
     }
 
-
-    /**
-     * static to avoid multiple timers to be created when the service is called several times
-     */
+    //static to avoid multiple timers to be created when the service is called several times
     private static Timer timer;
     private static TimerTask timerTask;
+    private static TimerTask loop;
     long oldTime = 0;
 
     public void startTimer() {
@@ -142,12 +146,10 @@ public class Service extends android.app.Service {
 
         Log.i(TAG, "Scheduling...");
         //schedule the timer, to wake up every 1 second
-        timer.schedule(timerTask, 1000, 1000); //
+        timer.schedule(timerTask, 1000, 1000);
     }
 
-    /**
-     * it sets the timer to print the counter every x seconds
-     */
+    //it sets the timer to print the counter every x seconds
     public void initializeTimerTask() {
         Log.i(TAG, "initialising TimerTask");
         timerTask = new TimerTask() {
@@ -157,9 +159,6 @@ public class Service extends android.app.Service {
         };
     }
 
-    /**
-     * not needed
-     */
     public void stoptimertask() {
         //stop the timer, if it's not already null
         if (timer != null) {
@@ -175,6 +174,4 @@ public class Service extends android.app.Service {
     public static void setmCurrentService(Service mCurrentService) {
         Service.mCurrentService = mCurrentService;
     }
-
-
 }

@@ -20,9 +20,7 @@ import uk.ac.shef.oak.jobserviceexample.R;
 public class Notification {
     private PendingIntent notificationPendingIntent;
 
-    /**
-     * This is the method  called to create the Notification
-     */
+    //This is the method  called to create the Notification
     public android.app.Notification setNotification(Context context, String title, String text, int icon) {
         if (notificationPendingIntent == null) {
             Intent notificationIntent = new Intent(context, MainActivity.class);
@@ -79,8 +77,6 @@ public class Notification {
                     .setPriority(android.app.Notification.PRIORITY_MIN)
                     .setContentIntent(notificationPendingIntent).build();
         }
-
         return notification;
     }
-
 }
