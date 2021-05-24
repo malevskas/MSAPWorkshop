@@ -12,6 +12,7 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Build;
 import android.os.IBinder;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -45,7 +46,8 @@ public class Service extends android.app.Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         super.onStartCommand(intent, flags, startId);
         Log.d(TAG, "restarting Service !!");
-        counter = 0;
+        SharedPreferences prefs= this.getSharedPreferences("uk.ac.shef.oak.ServiceRunning", this.MODE_PRIVATE);
+        counter = prefs.getInt("counter", 0);
 
         // it has been killed by Android and now it is restarted. We must make sure to have reinitialised everything
         if (intent == null) {
@@ -86,15 +88,7 @@ public class Service extends android.app.Service {
                 startForeground(NOTIFICATION_ID, notification.setNotification(this, "Service notification", "This is the service's notification", R.drawable.ic_sleep));
                 Log.i(TAG, "restarting foreground successful");
                 startTimer();
-                ConnectivityManager connMgr = (ConnectivityManager)
-                        getSystemService(Context.CONNECTIVITY_SERVICE);
-                NetworkInfo networkInfo = null;
-                if (connMgr != null) {
-                    networkInfo = connMgr.getActiveNetworkInfo();
-                }
-                if (networkInfo != null && networkInfo.isConnected()) {
-                    new Fetch().execute("");
-                }
+
             } catch (Exception e) {
                 Log.e(TAG, "Error in notification " + e.getMessage());
             }
@@ -105,6 +99,15 @@ public class Service extends android.app.Service {
     public void onDestroy() {
         super.onDestroy();
         Log.i(TAG, "onDestroy called");
+        try {
+            SharedPreferences prefs= getSharedPreferences("uk.ac.shef.oak.ServiceRunning", MODE_PRIVATE);
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putInt("counter", counter);
+            editor.apply();
+            //Long.i("MoveMore", "Saving readings to preferences");
+        } catch (NullPointerException e) {
+            Log.e(TAG, "error saving: are you testing?" +e.getMessage());
+        }
         // restart the never ending service
         Intent broadcastIntent = new Intent(Globals.RESTART_INTENT);
         sendBroadcast(broadcastIntent);
@@ -131,7 +134,6 @@ public class Service extends android.app.Service {
     //static to avoid multiple timers to be created when the service is called several times
     private static Timer timer;
     private static TimerTask timerTask;
-    private static TimerTask loop;
     long oldTime = 0;
 
     public void startTimer() {
@@ -154,9 +156,27 @@ public class Service extends android.app.Service {
         Log.i(TAG, "initialising TimerTask");
         timerTask = new TimerTask() {
             public void run() {
+                if(counter==0 || counter%600000==0) {
+                    isNetworkAvailable();
+                }
                 Log.i("in timer", "in timer ++++  " + (counter++));
             }
         };
+    }
+
+    private void isNetworkAvailable() {
+        ConnectivityManager connMgr = (ConnectivityManager)
+                getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo networkInfo = null;
+        if (connMgr != null) {
+            networkInfo = connMgr.getActiveNetworkInfo();
+        }
+        if (networkInfo != null && networkInfo.isConnected()) {
+            new Fetch().execute();
+        }
+        else {
+            Log.i("tag", "no connection");
+        }
     }
 
     public void stoptimertask() {

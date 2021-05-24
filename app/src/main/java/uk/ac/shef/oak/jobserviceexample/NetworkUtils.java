@@ -1,11 +1,19 @@
 package uk.ac.shef.oak.jobserviceexample;
 
+import android.content.Context;
 import android.net.Uri;
+import android.os.Build;
+import android.telephony.TelephonyManager;
 import android.util.Log;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
@@ -17,14 +25,24 @@ public class NetworkUtils {
     // Constants for the various components of the Books API request.
     //
     // Base endpoint URL for the Books API.
-    private static final String BOOK_BASE_URL = "http://10.0.2.2:5000/getjobs";
+    public static boolean checkDevice() {
+        if(Build.FINGERPRINT.contains("generic")) {
+            return true; // emulator
+        }
+        else
+            return false; // hardware
+    }
+    private static final String EMULATOR_URL = "http://10.0.2.2:5000/getjobs/emulator";
+    private static final String HARDWARE_URL = "http://192.168.0.104:5000/getjobs/hardware";
+    private static final String EMULATOR_POST = "http://10.0.2.2:5000/postresults";
+    private static final String HARDWARE_POST = "http://192.168.0.104:5000/postresults";
 
     /**
      * Static method to make the actual query to the Books API.
      *
      * @return the JSON response string from the query.
      */
-    static String getInfo() {
+    static String getPing() {
 
         // Set up variables for the try block that need to be closed in the
         // finally block.
@@ -34,7 +52,13 @@ public class NetworkUtils {
 
         try {
             // Convert the URI to a URL,
-            URL requestURL = new URL(BOOK_BASE_URL);
+            URL requestURL;
+            if(checkDevice()) {
+                requestURL = new URL(EMULATOR_URL);
+            }
+            else {
+                requestURL = new URL(HARDWARE_URL);
+            }
 
             // Open the network connection.
             urlConnection = (HttpURLConnection) requestURL.openConnection();
@@ -82,8 +106,54 @@ public class NetworkUtils {
                 }
             }
         }
-        // Write the final JSON response to the log
-        Log.d(LOG_TAG, JSONString);
         return JSONString;
+    }
+
+    static String postPing(String ping) {
+        try {
+            URL postURL;
+            if(checkDevice()) {
+                postURL = new URL(EMULATOR_POST);
+            }
+            else {
+                postURL = new URL(HARDWARE_POST);
+            }
+            HttpURLConnection con = (HttpURLConnection) postURL.openConnection();
+            con.setRequestMethod("POST");
+            con.setRequestProperty("Content-Type", "application/json; utf-8");
+            con.setRequestProperty("Accept", "text/plain; charset=utf-8");
+            con.setDoOutput(true);
+
+            JSONObject obj = new JSONObject();
+            obj.put("result", ping);
+            try(OutputStream os = con.getOutputStream()) {
+                byte[] input = obj.toString().getBytes("utf-8");
+                os.write(input, 0, input.length);
+            }
+            int code = con.getResponseCode();
+            Log.i("responseCode", String.valueOf(code));
+
+            if(code == HttpURLConnection.HTTP_OK) {
+                try(BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream(), "utf-8"))) {
+                    StringBuilder response = new StringBuilder();
+                    String responseLine = null;
+                    while ((responseLine = br.readLine()) != null) {
+                        response.append(responseLine.trim());
+                    }
+                    Log.i("HTTPresponse", response.toString());
+                    return response.toString();
+                }
+            }
+            else {
+                return "NOK";
+            }
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return "Unexpected error!";
     }
 }

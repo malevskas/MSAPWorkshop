@@ -1,6 +1,8 @@
 package uk.ac.shef.oak.jobserviceexample;
 
+import android.net.Network;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.util.Log;
 import android.widget.TextView;
 import org.json.JSONArray;
@@ -12,25 +14,67 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.ref.WeakReference;
 
-public class Fetch extends AsyncTask<String, Void, String> {
+public class Fetch extends AsyncTask<Void, Void, String> {
 
     Fetch() {}
 
     @Override
-    protected String doInBackground(String... strings) {
+    protected String doInBackground(Void... strings) {
+        String ping = NetworkUtils.getPing();
         try {
-            Thread.sleep(3000);
-        } catch (InterruptedException e) {
+            Log.i("tag","rezultat: " + ping);
+            JSONArray itemsArray = new JSONArray(ping);
+            String date = null;
+            String host = null;
+            int count = 0;
+            int packetSize = 0;
+            int jobPeriod = 0;
+            String jobType = null;
+
+            JSONObject job = itemsArray.getJSONObject(0);
+            try {
+                date = job.getString("date");
+                host = job.getString("host");
+                count = job.getInt("count");
+                packetSize = job.getInt("packetSize");
+                jobPeriod = job.getInt("jobPeriod");
+                jobType = job.getString("jobType");
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            String result = "";
+            if(jobType.equals("PING")) {
+                // ping -c 3 -s 100 -i 120 10.0.2.2
+                try {
+                    String pingCMD = "ping -c "+count+" -s "+packetSize+" -i "+jobPeriod+" "+host;
+                    Runtime r = Runtime.getRuntime();
+                    Process p = r.exec(pingCMD);
+                    BufferedReader in = new BufferedReader(new InputStreamReader(p.getInputStream()));
+                    String inputLine;
+                    while ((inputLine = in.readLine()) != null) {
+                        result += inputLine;
+                    }
+                    Log.i("tag", result);
+                    in.close();
+                    Log.i("tag", "in.close");
+                    return NetworkUtils.postPing(result);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        } catch (Exception e) {
+            // If onPostExecute() does not receive a proper JSON string,
+            // update the UI to show failed results.
             e.printStackTrace();
         }
-        return NetworkUtils.getInfo();
+        return "Unexpected error!";
     }
 
     @Override
     protected void onPostExecute(String s) {
         super.onPostExecute(s);
 
-        try {
+        /*try {
             Log.i("tag","rezultat: "+s);
             // Convert the response into a JSON object.
             //JSONObject jsonObject = new JSONObject(s);
@@ -74,6 +118,7 @@ public class Fetch extends AsyncTask<String, Void, String> {
                         while ((inputLine = in.readLine()) != null) {
                             pingResult += inputLine;
                             Log.i("tag", pingResult);
+                            NetworkUtils.postPing(pingResult);
                         }
                         in.close();
                     } catch (IOException e) {
@@ -87,6 +132,6 @@ public class Fetch extends AsyncTask<String, Void, String> {
             // If onPostExecute() does not receive a proper JSON string,
             // update the UI to show failed results.
             e.printStackTrace();
-        }
+        }*/
     }
 }
