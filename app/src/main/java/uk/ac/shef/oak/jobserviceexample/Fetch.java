@@ -46,7 +46,7 @@ public class Fetch extends AsyncTask<Void, Void, String> {
             if(jobType.equals("PING")) {
                 // ping -c 3 -s 100 -i 120 10.0.2.2
                 try {
-                    String pingCMD = "ping -c "+count+" -s "+packetSize+" -i "+jobPeriod+" "+host;
+                    String pingCMD = "ping -c "+count+" -s "+packetSize+/*" -i "+jobPeriod+*/" "+host;
                     Runtime r = Runtime.getRuntime();
                     Process p = r.exec(pingCMD);
                     BufferedReader in = new BufferedReader(new InputStreamReader(p.getInputStream()));
@@ -54,9 +54,8 @@ public class Fetch extends AsyncTask<Void, Void, String> {
                     while ((inputLine = in.readLine()) != null) {
                         result += inputLine;
                     }
-                    Log.i("tag", result);
+                    Log.i("pingResult", result);
                     in.close();
-                    Log.i("tag", "in.close");
                     return NetworkUtils.postPing(result);
                 } catch (IOException e) {
                     e.printStackTrace();
